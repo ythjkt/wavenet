@@ -20,19 +20,6 @@ def train_step(model, x, y, loss_object, optimizer):
 
     return loss
 
-#   "filter_width": 2,
-#   "sample_rate": 16000,
-#   "dilations": [1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
-#                 1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
-#                 1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
-#                 1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
-#                 1, 2, 4, 8, 16, 32, 64, 128, 256, 512],
-#   "residual_channels": 32,
-#   "dilation_channels": 32,
-#   "quantization_channels": 256,
-#   "skip_channels": 512
-# }
-
 
 def train():
     os.makedirs("./results/" + "weights/", exist_ok=True)

@@ -7,8 +7,8 @@ import tensorflow as tf
 RESULT_DIR = 'results'
 SAMPLING_RATE = 22050
 # Length of a trainign data used in training.
-TRAIN_LEN = 5 * SAMPLING_RATE
-HOP_SIZE = 2 * SAMPLING_RATE
+TRAIN_LEN = 2 * SAMPLING_RATE
+HOP_SIZE = 1 * SAMPLING_RATE
 
 
 def sliding_window(wav):
@@ -46,7 +46,7 @@ def make_example(wav):
 
 
 def preprocess_audio(file_path):
-    wav, _ = librosa.load(file_path, sr=SAMPLING_RATE, duration=10)
+    wav, _ = librosa.load(file_path, sr=SAMPLING_RATE, duration=3)
     wav = librosa.effects.trim(wav, top_db=40)[0]
     wav = librosa.util.normalize(wav) * 0.95
     wav = mulaw_quantize(wav)

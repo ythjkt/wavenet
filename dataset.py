@@ -20,6 +20,6 @@ def get_train_data():
     train_data = tf.data.TFRecordDataset(
         './results/train_data.tfrecord').map(decode_fn)\
         .map(get_xy).batch(3)\
-        .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        .prefetch(buffer_size=tf.data.AUTOTUNE)
 
     return train_data
