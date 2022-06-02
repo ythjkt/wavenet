@@ -67,7 +67,6 @@ class WaveNet(Model):
         self.caucal_conv = tf.keras.layers.Conv1D(
             residual_channels, kernel_size=1, padding='causal')
         self.residual_blocks = []
-        print(dilations)
         for d in dilations:
             self.residual_blocks.append(ResidualBlock(kernel_size,
                                                       residual_channels,

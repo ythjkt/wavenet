@@ -38,6 +38,7 @@ def inv_mulaw_quantize(x, mu=255):
 
 
 def save_wav(wav, path, sr):
+    # 32767 is the maximum number of int16.
     wav *= 32767 / max(0.0001, np.max(np.abs(wav)))
     wavfile.write(path, sr, wav.astype(np.int16))
 
@@ -61,7 +62,7 @@ def main():
     inputs = tf.reshape(inputs, [1, 1, 256])
 
     outputs = []
-    for i in range(10):
+    for i in range(1000):
         x = wavenet.predict(inputs)[:, -1, :]
         x = tf.expand_dims(x, axis=1)
         x = tf.argmax(x, axis=-1)
