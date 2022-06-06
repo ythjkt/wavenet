@@ -16,14 +16,14 @@ LOAD_CHECKPOINT = True
 CHECKPOINT_PATH = r'wavenet_([0-9]+)\.ckpt'
 
 @tf.function
-def train_step(model: tf.keras.Model, x, y, loss_object, optimizer, loss_metric):
+def train_step(model: tf.keras.Model, x, y, loss_object, optimizer, loss_metric, train_accuracy):
     with tf.GradientTape() as tape:
         predictions = model(x)
         loss = loss_object(y, predictions)
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-    print("loss ", loss)
     loss_metric.update_state(loss)
+    train_accuracy.update_state(y, predictions)
 
 
 def main():
@@ -47,6 +47,7 @@ def main():
     optimizer = tf.keras.optimizers.Adam()
 
     train_loss = tf.keras.metrics.Mean(name='train_loss')
+    train_accuracy = tf.keras.metrics.CategoricalAccuracy(name='train_accuracy')
 
     current_epoch = 0
     if LOAD_CHECKPOINT:
@@ -62,13 +63,14 @@ def main():
     step = 0
     for epoch in range(current_epoch, params.epoch):
         train_loss.reset_state()
+        train_accuracy.reset_state()
         train_data = get_train_data()
         for x, y in train_data:
-            train_step(model, x, y, loss_object, optimizer, train_loss)
+            train_step(model, x, y, loss_object, optimizer, train_loss, train_accuracy)
 
             with summary_writer.as_default():
                 tf.summary.scalar('train/loss', train_loss.result(), step=step)
-
+                tf.summary.scalar('train/accuracy', train_accuracy.result(), step=step)
             step += 1
 
         if epoch % SAVE_INTERVAL == 0:
@@ -77,7 +79,8 @@ def main():
             model.save_weights(checkpoint_path)
 
         print(f'Epoch {epoch + 1} '
-              f'Loss {train_loss.result()}'
+              f'Loss {train_loss.result()} '
+              f'Accuracy {train_accuracy.result()}'
               )
 
     print(f"Done training for {epoch} epoch.")

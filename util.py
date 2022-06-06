@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.io import wavfile
 import json
+import soundfile
 
 MU_VALUE = 255
 
@@ -17,10 +18,10 @@ def inv_mulaw(x: np.ndarray, mu=MU_VALUE):
 
 
 def inv_mulaw_quantize(x: np.ndarray, mu=MU_VALUE):
+    # Map values back to [-1, 1].
     x = 2 * x.astype(np.float32) / mu - 1
     return inv_mulaw(x, mu)
 
 
 def save_wav(wav: np.ndarray, path: str, sr: int):
-    wav *= 32767 / max(0.0001, np.max(np.abs(wav)))
-    wavfile.write(path, sr, wav.astype(np.int16))
+    soundfile.write(path, wav, sr)
