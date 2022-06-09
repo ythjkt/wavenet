@@ -37,52 +37,33 @@ def main():
         params.residual_channels,
         params.dilation_channels,
         params.skip_channels)
-    latest = tf.train.latest_checkpoint(CHECKPOINTS_DIR)
-    wavenet.load_weights(latest)
+    # latest = tf.train.latest_checkpoint(CHECKPOINTS_DIR)
+    wavenet.load_weights('results/wavenet_01899')
     initial_value = mulaw_quantize(0)
     inputs = tf.one_hot(indices=initial_value, depth=256, dtype=tf.float32)
     inputs = tf.reshape(inputs, [1, 1, 256])
-    # debug
-    inputs = tf.one_hot(indices=10, depth=256, dtype=tf.float32)
-    inputs = tf.reshape(inputs, [1, 1, 256])
-    inputs = tf.repeat(inputs, 100, axis=1)
-    print(inputs.shape)
-    print(inputs)
-    # debug
+    inputs = tf.repeat(inputs, 10, axis=1)
     outputs = []
     for i in range(GENERATE_LEN):
-        # o = wavenet.predict(inputs, verbose=0)
-        # print(o.shape)
         x = wavenet.predict(inputs, verbose=0)[:, -1, :]
-        print('argmax!', tf.argmax(inputs, axis=-1))
-        # print('-1', x.shape)
         x = tf.expand_dims(x, axis=1)
-        # print('expand_dims', x.shape)
         x = tf.argmax(x, axis=-1)
-        print('argmax', x)
-        # print('argmax', x.shape)
         x = tf.one_hot(indices=x, depth=256)
-        # print('one-Hot', x.shape)
         x = tf.reshape(x, [1, 1, 256])
-        print(tf.math.argmax(x[0, 0]), f'step {i}')
         outputs.append(tf.argmax(x, axis=-1).numpy().item())
 
         inputs = tf.concat((inputs, x), axis=1)
 
-        if inputs.shape[1] > 1024:
+        if inputs.shape[1] > 1025:
             inputs = inputs[:, 1:, :]
-
-        assert inputs.shape[1] < 1025
+        assert inputs.shape[1] <= 1025
 
         print_progress_bar(i, GENERATE_LEN)
+        # print(outputs)
 
     outputs = np.array(outputs)
     print(outputs)
     outputs = inv_mulaw_quantize(outputs)
-
-    print(inv_mulaw_quantize(np.array(125)))
-
-    print(outputs)
 
     save_wav(outputs, f'./generated/audio-{time.strftime("%Y%m%d-%H%M%S")}.wav', SAMPLING_RATE)
 
