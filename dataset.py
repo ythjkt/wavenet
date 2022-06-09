@@ -18,8 +18,8 @@ def get_xy(wav):
 
 def get_train_data():
     train_data = tf.data.TFRecordDataset(
-        './train_data/train_data.tfrecord').map(decode_fn)\
-        .map(get_xy).batch(3)\
+        './train_data/train_data.tfrecord').shuffle(300).map(decode_fn)\
+        .map(get_xy).batch(1)\
         .prefetch(buffer_size=tf.data.AUTOTUNE)
 
     return train_data

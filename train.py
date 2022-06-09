@@ -12,7 +12,7 @@ SAVE_INTERVAL = 5
 RESULTS_DIR = './results/'
 WEIGHTS_DIR = './results/weights/'
 CHECKPOINTS_DIR = './results/ckpts'
-LOAD_CHECKPOINT = True
+LOAD_CHECKPOINT = False
 CHECKPOINT_PATH = r'wavenet_([0-9]+)\.ckpt'
 
 @tf.function
@@ -30,11 +30,6 @@ def main():
     print("Num GPUs available: ", len(tf.config.list_physical_devices('GPU')))
     os.makedirs(WEIGHTS_DIR, exist_ok=True)
 
-    print(params.dilations)
-    print(params.filter_width)
-    print(params.residual_channels)
-    print(params.dilation_channels)
-    print(params.skip_channels)
     # Initialize WaveNet.
     model = WaveNet(
         params.dilations,
@@ -61,6 +56,7 @@ def main():
 
     summary_writer = tf.summary.create_file_writer(RESULTS_DIR)
     step = 0
+    print("Start training WaveNet.")
     for epoch in range(current_epoch, params.epoch):
         train_loss.reset_state()
         train_accuracy.reset_state()

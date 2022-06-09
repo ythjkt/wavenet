@@ -9,7 +9,7 @@ dilation_channels = 32
 quantization_channels=256
 skip_channels=512
 frame_length=2048
-epoch=1900
+epoch=1000
 mu=256
 
 result_dir="results"
