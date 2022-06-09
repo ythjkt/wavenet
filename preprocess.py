@@ -28,7 +28,7 @@ def make_example(wav):
 
 def preprocess_audio(file_path: str):
     wav, _ = librosa.load(file_path, sr=SAMPLING_RATE)
-    wav = librosa.effects.trim(wav, top_db=40)[0]
+    wav = librosa.effects.trim(wav, top_db=12)[0]
     wav = librosa.util.normalize(wav) * 0.95
     wav = mulaw_quantize(wav)
     wavs = split_wav(wav)

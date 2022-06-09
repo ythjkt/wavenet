@@ -9,7 +9,7 @@ def mulaw(x: np.ndarray, mu = MU_VALUE) -> np.ndarray:
     return np.sign(x) * np.log1p(mu * np.abs(x)) / np.log1p(mu)
 
 def mulaw_quantize(x: np.ndarray, mu = MU_VALUE) -> np.ndarray:
-    x = mulaw(x)
+    x = mulaw(x, mu)
     x = (x + 1.0) * mu / 2.0
     return x.astype(int)
 
@@ -25,3 +25,4 @@ def inv_mulaw_quantize(x: np.ndarray, mu=MU_VALUE):
 
 def save_wav(wav: np.ndarray, path: str, sr: int):
     soundfile.write(path, wav, sr)
+    print(f'Wrote output to {path}')

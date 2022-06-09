@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.io import wavfile
 from util import *
+import librosa
 import pytest
 
 @pytest.mark.parametrize("test_input", [-1, 0, 1])
