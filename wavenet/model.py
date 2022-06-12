@@ -5,7 +5,53 @@ from tensorflow.keras import Model
 print("TensorFlow version:", tf.__version__)
 
 
+class MyConv1D(tf.keras.layers.Conv1D):
+
+    def __init__(
+        self,
+        filters,
+        kernel_size,
+        strides=1,
+        padding='causal',
+        dilation_rate=1,
+    ):
+        super().__init__(
+            filters,
+            kernel_size,
+            strides=strides,
+            padding=padding,
+            dilation_rate=dilation_rate,
+        )
+        self.cache_queue = None
+
+    def call(self, inputs, is_generate=False):
+        if (self.kernel_size[0] != 2 or not is_generate):
+            return super().call(inputs)
+
+        assert inputs.shape[1] == 1
+        if (not self.cache_queue):
+            self.cache_queue = tf.queue.FIFOQueue(
+                capacity=self.dilation_rate[0], dtypes=tf.float32)
+            batch_size = inputs.shape[0]
+            input_channels = inputs.shape[2]
+            self.cache_queue.enqueue_many(
+                tf.zeros(shape=(self.dilation_rate[0], batch_size,
+                                input_channels),
+                         dtype=tf.float32))
+
+        state = self.cache_queue.dequeue()
+        self.cache_queue.enqueue(inputs[:, -1, :])
+        w, b = self.get_weights()
+        w_r = w[0, :, :]
+        w_e = w[1, :, :]
+        output = tf.matmul(state, w_r) + tf.matmul(
+            tf.reshape(inputs, (inputs.shape[0], -1)), w_e)
+        output = tf.expand_dims(output, axis=1)
+        return output + b
+
+
 class ResidualBlock(Layer):
+
     def __init__(
         self,
         kernel_size,
@@ -23,17 +69,14 @@ class ResidualBlock(Layer):
             activation="tanh",
             padding="causal",
         )
-        self.sig_conv1D = Conv1D(
-            dilation_channels,
-            kernel_size,
-            dilation_rate=dilation_rate,
-            activation="sigmoid",
-            padding="causal"
-        )
+        self.sig_conv1D = Conv1D(dilation_channels,
+                                 kernel_size,
+                                 dilation_rate=dilation_rate,
+                                 activation="sigmoid",
+                                 padding="causal")
         self.res_output = Conv1D(residual_channels, 1, padding="same")
         self.multiply = tf.keras.layers.Multiply()
-        self.SkipConv = tf.keras.layers.Conv1D(
-            skip_channels, 1, padding="same")
+        self.SkipConv = tf.keras.layers.Conv1D(skip_channels, 1, padding="same")
         self.add = tf.keras.layers.Add()
 
     def call(self, inputs):
@@ -49,13 +92,11 @@ class ResidualBlock(Layer):
 
 
 class WaveNet(Model):
-    def __init__(
-        self, dilations, kernel_size,
-        residual_channels,
-        dilation_channels,
-        skip_channels
-        # output_channels
-    ):
+
+    def __init__(self, dilations, kernel_size, residual_channels,
+                 dilation_channels, skip_channels
+                 # output_channels
+                ):
         super(WaveNet, self).__init__()
 
         self.kernel_size = kernel_size
@@ -64,21 +105,25 @@ class WaveNet(Model):
         self.skip_channels = skip_channels
         # self.output_channels = output_channels
 
-        self.caucal_conv = tf.keras.layers.Conv1D(
-            residual_channels, kernel_size=1, padding='causal')
+        self.caucal_conv = tf.keras.layers.Conv1D(residual_channels,
+                                                  kernel_size=1,
+                                                  padding='causal')
         self.residual_blocks = []
         for d in dilations:
-            self.residual_blocks.append(ResidualBlock(kernel_size,
-                                                      residual_channels,
-                                                      dilation_channels,
-                                                      skip_channels,
-                                                      dilation_rate=d))
+            self.residual_blocks.append(
+                ResidualBlock(kernel_size,
+                              residual_channels,
+                              dilation_channels,
+                              skip_channels,
+                              dilation_rate=d))
 
         self.relu1 = tf.keras.layers.ReLU()
         self.conv1 = tf.keras.layers.Conv1D(128, kernel_size=1, padding="same")
         self.relu2 = tf.keras.layers.ReLU()
-        self.conv2 = tf.keras.layers.Conv1D(
-            256, kernel_size=1, padding="same", activation='softmax')
+        self.conv2 = tf.keras.layers.Conv1D(256,
+                                            kernel_size=1,
+                                            padding="same",
+                                            activation='softmax')
 
     def call(self, inputs):
         x = self.caucal_conv(inputs)
