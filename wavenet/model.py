@@ -1,4 +1,5 @@
 import tensorflow as tf
+from util import mulaw_quantize
 from tensorflow.keras.layers import Conv1D, Flatten, Layer
 from tensorflow.keras import Model
 
@@ -47,6 +48,7 @@ class MyConv1D(tf.keras.layers.Conv1D):
         output = tf.matmul(state, w_r) + tf.matmul(
             tf.reshape(inputs, (inputs.shape[0], -1)), w_e)
         output = tf.expand_dims(output, axis=1)
+        # Use add_bias instead.
         return output + b
 
 
@@ -62,31 +64,29 @@ class ResidualBlock(Layer):
     ):
         super(ResidualBlock, self).__init__()
 
-        self.tanh_conv1D = Conv1D(
+        self.tanh_conv1D = MyConv1D(
             dilation_channels,
             kernel_size,
             dilation_rate=dilation_rate,
-            activation="tanh",
             padding="causal",
         )
-        self.sig_conv1D = Conv1D(dilation_channels,
-                                 kernel_size,
-                                 dilation_rate=dilation_rate,
-                                 activation="sigmoid",
-                                 padding="causal")
-        self.res_output = Conv1D(residual_channels, 1, padding="same")
-        self.multiply = tf.keras.layers.Multiply()
-        self.SkipConv = tf.keras.layers.Conv1D(skip_channels, 1, padding="same")
-        self.add = tf.keras.layers.Add()
+        self.sig_conv1D = MyConv1D(dilation_channels,
+                                   kernel_size,
+                                   dilation_rate=dilation_rate,
+                                   padding="causal")
+        self.res_output = MyConv1D(residual_channels, 1, padding="same")
+        self.skip_conv = MyConv1D(skip_channels, 1, padding="same")
 
-    def call(self, inputs):
+    def call(self, inputs, is_generate=False):
         res = inputs
-        tanh_out = self.tanh_conv1D(inputs)
-        sig_out = self.sig_conv1D(inputs)
-        merged = self.multiply((tanh_out, sig_out))
-        res_out = self.res_output(merged)
-        skip_out = self.SkipConv(merged)
-        res_out = self.add((res_out, res))
+        tanh_out = self.tanh_conv1D(inputs, is_generate)
+        sig_out = self.sig_conv1D(inputs, is_generate)
+        tanh_out = tf.nn.tanh(tanh_out)
+        sig_out = tf.nn.sigmoid(sig_out)
+        merged = tf.multiply(tanh_out, sig_out)
+        res_out = self.res_output(merged, is_generate)
+        skip_out = self.skip_conv(merged, is_generate)
+        res_out = tf.add(res_out, res)
 
         return res_out, skip_out
 
@@ -105,9 +105,9 @@ class WaveNet(Model):
         self.skip_channels = skip_channels
         # self.output_channels = output_channels
 
-        self.caucal_conv = tf.keras.layers.Conv1D(residual_channels,
-                                                  kernel_size=1,
-                                                  padding='causal')
+        self.caucal_conv = MyConv1D(residual_channels,
+                                    kernel_size=1,
+                                    padding='causal')
         self.residual_blocks = []
         for d in dilations:
             self.residual_blocks.append(
@@ -117,13 +117,8 @@ class WaveNet(Model):
                               skip_channels,
                               dilation_rate=d))
 
-        self.relu1 = tf.keras.layers.ReLU()
-        self.conv1 = tf.keras.layers.Conv1D(128, kernel_size=1, padding="same")
-        self.relu2 = tf.keras.layers.ReLU()
-        self.conv2 = tf.keras.layers.Conv1D(256,
-                                            kernel_size=1,
-                                            padding="same",
-                                            activation='softmax')
+        self.conv1 = MyConv1D(128, kernel_size=1, padding="same")
+        self.conv2 = MyConv1D(256, kernel_size=1, padding="same")
 
     def call(self, inputs):
         x = self.caucal_conv(inputs)
@@ -135,9 +130,39 @@ class WaveNet(Model):
             else:
                 skip = skip + h
         x = skip
-        x = self.relu1(x)
+        x = tf.nn.relu(x)
         x = self.conv1(x)
-        x = self.relu2(x)
+        x = tf.nn.relu(x)
         x = self.conv2(x)
+        x = tf.nn.softmax(x)
 
         return x
+
+    def generate(self, time_len, progress_callback=None):
+        initial_value = mulaw_quantize(10)
+        inputs = tf.one_hot(indices=initial_value, depth=256, dtype=tf.float32)
+        inputs = tf.reshape(inputs, [1, 1, 256])
+        outputs = []
+
+        for i in range(time_len):
+            x = self.caucal_conv(inputs, is_generate=True)
+            skip = None
+            for residual_block in self.residual_blocks:
+                x, h = residual_block(x, is_generate=True)
+                if skip is None:
+                    skip = h
+                else:
+                    skip = skip + h
+            x = skip
+            x = tf.nn.relu(x)
+            x = self.conv1(x, is_generate=True)
+            x = tf.nn.relu(x)
+            x = self.conv2(x, is_generate=True)
+            x = tf.nn.softmax(x)
+            inputs = x
+            outputs.append(x)
+
+            if progress_callback:
+                progress_callback(i, time_len)
+
+        return tf.concat(outputs, axis=1)
