@@ -1,3 +1,4 @@
+from functools import cache
 import tensorflow as tf
 from util import mulaw_quantize
 from tensorflow.keras.layers import Conv1D, Flatten, Layer
@@ -24,32 +25,34 @@ class MyConv1D(tf.keras.layers.Conv1D):
             dilation_rate=dilation_rate,
         )
         self.cache_queue = None
+        # self.linearized_kernel = None
 
     def call(self, inputs, is_generate=False):
         if (self.kernel_size[0] != 2 or not is_generate):
             return super().call(inputs)
 
-        assert inputs.shape[1] == 1
-        if (not self.cache_queue):
-            self.cache_queue = tf.queue.FIFOQueue(
-                capacity=self.dilation_rate[0], dtypes=tf.float32)
-            batch_size = inputs.shape[0]
-            input_channels = inputs.shape[2]
-            self.cache_queue.enqueue_many(
-                tf.zeros(shape=(self.dilation_rate[0], batch_size,
-                                input_channels),
-                         dtype=tf.float32))
+        return self.generate(inputs)
 
+    # @tf.function
+    def generate(self, inputs):
         state = self.cache_queue.dequeue()
-        self.cache_queue.enqueue(inputs[:, -1, :])
-        w, b = self.get_weights()
-        w_r = w[0, :, :]
-        w_e = w[1, :, :]
-        output = tf.matmul(state, w_r) + tf.matmul(
-            tf.reshape(inputs, (inputs.shape[0], -1)), w_e)
-        output = tf.expand_dims(output, axis=1)
-        # Use add_bias instead.
-        return output + b
+        self.cache_queue.enqueue(inputs)
+        inputs = tf.concat([state, inputs], axis=1)
+        return tf.nn.convolution(inputs, self.kernel) + self.bias
+
+    def build(self, input_shape):
+        super().build(input_shape)
+
+        self.init_queue(input_shape[0], input_shape[2])
+
+    def init_queue(self, batch_size, input_channels):
+        self.cache_queue = tf.queue.FIFOQueue(capacity=self.dilation_rate[0],
+                                              dtypes=tf.float32)
+        self.cache_queue.enqueue_many(
+            tf.zeros(shape=(self.dilation_rate[0], batch_size, 1,
+                            input_channels),
+                     dtype=tf.float32))
+        # self.linearized_kernel = tf.reshape(self.kernel, [-1, self.filters])
 
 
 class ResidualBlock(Layer):
@@ -75,7 +78,7 @@ class ResidualBlock(Layer):
                                    dilation_rate=dilation_rate,
                                    padding="causal")
         self.res_output = MyConv1D(residual_channels, 1, padding="same")
-        self.skip_conv = MyConv1D(skip_channels, 1, padding="same")
+        self.SkipConv = MyConv1D(skip_channels, 1, padding="same")
 
     def call(self, inputs, is_generate=False):
         res = inputs
@@ -85,7 +88,7 @@ class ResidualBlock(Layer):
         sig_out = tf.nn.sigmoid(sig_out)
         merged = tf.multiply(tanh_out, sig_out)
         res_out = self.res_output(merged, is_generate)
-        skip_out = self.skip_conv(merged, is_generate)
+        skip_out = self.SkipConv(merged, is_generate)
         res_out = tf.add(res_out, res)
 
         return res_out, skip_out
@@ -120,21 +123,21 @@ class WaveNet(Model):
         self.conv1 = MyConv1D(128, kernel_size=1, padding="same")
         self.conv2 = MyConv1D(256, kernel_size=1, padding="same")
 
-    def call(self, inputs):
-        x = self.caucal_conv(inputs)
+    def call(self, inputs, is_generate=False):
+        x = self.caucal_conv(inputs, is_generate)
         skip = None
         for residual_block in self.residual_blocks:
-            x, h = residual_block(x)
+            x, h = residual_block(x, is_generate)
             if skip is None:
                 skip = h
             else:
                 skip = skip + h
         x = skip
         x = tf.nn.relu(x)
-        x = self.conv1(x)
+        x = self.conv1(x, is_generate)
         x = tf.nn.relu(x)
-        x = self.conv2(x)
-        x = tf.nn.softmax(x)
+        x = self.conv2(x, is_generate)
+        # x = tf.nn.softmax(x)
 
         return x
 
@@ -145,22 +148,8 @@ class WaveNet(Model):
         outputs = []
 
         for i in range(time_len):
-            x = self.caucal_conv(inputs, is_generate=True)
-            skip = None
-            for residual_block in self.residual_blocks:
-                x, h = residual_block(x, is_generate=True)
-                if skip is None:
-                    skip = h
-                else:
-                    skip = skip + h
-            x = skip
-            x = tf.nn.relu(x)
-            x = self.conv1(x, is_generate=True)
-            x = tf.nn.relu(x)
-            x = self.conv2(x, is_generate=True)
-            x = tf.nn.softmax(x)
-            inputs = x
-            outputs.append(x)
+            inputs = self.call(inputs, is_generate=True)
+            outputs.append(inputs)
 
             if progress_callback:
                 progress_callback(i, time_len)

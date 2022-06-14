@@ -1,4 +1,5 @@
 from wavenet.model import WaveNet
+import time
 import numpy as np
 import tensorflow as tf
 from preprocess import mulaw_quantize
@@ -39,27 +40,45 @@ def main():
                       params.residual_channels, params.dilation_channels,
                       params.skip_channels)
     latest = tf.train.latest_checkpoint(CHECKPOINTS_DIR)
-    wavenet.load_weights(latest)
-    outputs = wavenet.generate(GENERATE_LEN,
-                               progress_callback=print_progress_bar)
-    # for i in range(GENERATE_LEN):
-    #     x = wavenet.predict(inputs, verbose=0)[:, -1, :]
-    #     x = tf.expand_dims(x, axis=1)
-    #     x = tf.argmax(x, axis=-1)
-    #     x = tf.one_hot(indices=x, depth=256)
-    #     x = tf.reshape(x, [1, 1, 256])
-    #     outputs.append(tf.argmax(x, axis=-1).numpy().item())
+    start_time = time.time()
+    with tf.device('/cpu:0'):
+        wavenet.load_weights(latest)
+        outputs = wavenet.generate(GENERATE_LEN,
+                                   progress_callback=print_progress_bar)
+        end_time = time.time()
+        print(
+            f"Generating {GENERATE_LEN} took {end_time - start_time:.0f} seconds."
+        )
 
-    #     inputs = tf.concat((inputs, x), axis=1)
+    with tf.device('/gpu:0'):
+        wavenet.load_weights(latest)
+        start_time = time.time()
+        initial_value = mulaw_quantize(10)
+        inputs = tf.one_hot(indices=initial_value, depth=256, dtype=tf.float32)
+        inputs = tf.reshape(inputs, [1, 1, 256])
+        outputs = []
+        for i in range(GENERATE_LEN):
+            x = wavenet(inputs)[:, -1, :]
+            x = tf.expand_dims(x, axis=1)
+            x = tf.argmax(x, axis=-1)
+            x = tf.one_hot(indices=x, depth=256)
+            x = tf.reshape(x, [1, 1, 256])
+            outputs.append(tf.argmax(x, axis=-1).numpy().item())
 
-    #     if inputs.shape[1] > 1025:
-    #         inputs = inputs[:, 1:, :]
-    #     assert inputs.shape[1] <= 1025
+            inputs = tf.concat((inputs, x), axis=1)
 
-    #     print_progress_bar(i, GENERATE_LEN)
-    #     # print(outputs)
+            if inputs.shape[1] > 1025:
+                inputs = inputs[:, 1:, :]
+            assert inputs.shape[1] <= 1025
+
+            print_progress_bar(i, GENERATE_LEN)
+            # print(outputs)
+        end_time = time.time()
+    print(
+        f"Generating {GENERATE_LEN} took {end_time - start_time:.0f} seconds.")
 
     outputs = tf.argmax(outputs, axis=-1).numpy()
+    print(outputs.shape)
     outputs = inv_mulaw_quantize(outputs)
 
     save_wav(outputs, f'./generated/audio-{time.strftime("%Y%m%d-%H%M%S")}.wav',
