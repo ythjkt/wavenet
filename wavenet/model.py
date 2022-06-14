@@ -1,8 +1,4 @@
-from functools import cache
 import tensorflow as tf
-from util import mulaw_quantize
-from tensorflow.keras.layers import Conv1D, Flatten, Layer
-from tensorflow.keras import Model
 
 print("TensorFlow version:", tf.__version__)
 
@@ -25,7 +21,6 @@ class MyConv1D(tf.keras.layers.Conv1D):
             dilation_rate=dilation_rate,
         )
         self.cache_queue = None
-        # self.linearized_kernel = None
 
     def call(self, inputs, is_generate=False):
         if (self.kernel_size[0] != 2 or not is_generate):
@@ -33,7 +28,6 @@ class MyConv1D(tf.keras.layers.Conv1D):
 
         return self.generate(inputs)
 
-    # @tf.function
     def generate(self, inputs):
         state = self.cache_queue.dequeue()
         self.cache_queue.enqueue(inputs)
@@ -52,10 +46,9 @@ class MyConv1D(tf.keras.layers.Conv1D):
             tf.zeros(shape=(self.dilation_rate[0], batch_size, 1,
                             input_channels),
                      dtype=tf.float32))
-        # self.linearized_kernel = tf.reshape(self.kernel, [-1, self.filters])
 
 
-class ResidualBlock(Layer):
+class ResidualBlock(tf.keras.layers.Layer):
 
     def __init__(
         self,
@@ -94,19 +87,16 @@ class ResidualBlock(Layer):
         return res_out, skip_out
 
 
-class WaveNet(Model):
+class WaveNet(tf.keras.Model):
 
     def __init__(self, dilations, kernel_size, residual_channels,
-                 dilation_channels, skip_channels
-                 # output_channels
-                ):
+                 dilation_channels, skip_channels):
         super(WaveNet, self).__init__()
 
         self.kernel_size = kernel_size
         self.residual_channels = residual_channels
         self.dilation_channels = dilation_channels
         self.skip_channels = skip_channels
-        # self.output_channels = output_channels
 
         self.caucal_conv = MyConv1D(residual_channels,
                                     kernel_size=1,
@@ -137,21 +127,7 @@ class WaveNet(Model):
         x = self.conv1(x, is_generate)
         x = tf.nn.relu(x)
         x = self.conv2(x, is_generate)
-        # x = tf.nn.softmax(x)
+        if not is_generate:
+            x = tf.nn.softmax(x)
 
         return x
-
-    def generate(self, time_len, progress_callback=None):
-        initial_value = mulaw_quantize(10)
-        inputs = tf.one_hot(indices=initial_value, depth=256, dtype=tf.float32)
-        inputs = tf.reshape(inputs, [1, 1, 256])
-        outputs = []
-
-        for i in range(time_len):
-            inputs = self.call(inputs, is_generate=True)
-            outputs.append(inputs)
-
-            if progress_callback:
-                progress_callback(i, time_len)
-
-        return tf.concat(outputs, axis=1)
