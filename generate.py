@@ -11,7 +11,7 @@ import params
 from util import *
 
 SAMPLING_RATE = 22050
-GENERATE_LEN = SAMPLING_RATE // 2
+GENERATE_LEN = SAMPLING_RATE * 10
 CHECKPOINTS_DIR = './results/ckpts'  # TODO: Put this to params.py
 
 
@@ -50,7 +50,6 @@ def main():
     with tf.device('/cpu:0'):
         for i in range(GENERATE_LEN):
             input = wavenet.call(input, is_generate=True)
-            print(tf.argmax(input, axis=-1).numpy().item(), end='\r')
             outputs.append(tf.squeeze(tf.argmax(input, axis=-1)))
             print_progress_bar(i, GENERATE_LEN)
 

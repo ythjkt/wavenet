@@ -2,6 +2,6 @@
 .venv/
 .vscode/
 __pycache__/
-results/
+// results/
 generated/
 train_data/
