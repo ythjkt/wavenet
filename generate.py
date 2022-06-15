@@ -11,7 +11,7 @@ import params
 from util import *
 
 SAMPLING_RATE = 22050
-GENERATE_LEN = SAMPLING_RATE * 10
+GENERATE_LEN = SAMPLING_RATE * 2
 CHECKPOINTS_DIR = './results/ckpts'  # TODO: Put this to params.py
 
 
@@ -41,9 +41,9 @@ def main():
                       params.skip_channels)
     # latest = tf.train.latest_checkpoint(CHECKPOINTS_DIR)
     start_time = time.time()
-    wavenet.load_weights('results/weights/wavenet_00999')
+    wavenet.load_weights('results/weights/wavenet_01500')
 
-    initial_value = mulaw_quantize(10)
+    initial_value = mulaw_quantize(200)
     input = tf.one_hot(indices=initial_value, depth=256, dtype=tf.float32)
     input = tf.reshape(input, [1, 1, 256])
     outputs = []

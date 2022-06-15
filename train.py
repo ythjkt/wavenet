@@ -8,15 +8,17 @@ from wavenet.model import WaveNet
 from dataset import get_train_data
 import params
 
-SAVE_INTERVAL = 5
+SAVE_INTERVAL = 50
 RESULTS_DIR = './results/'
 WEIGHTS_DIR = './results/weights/'
 CHECKPOINTS_DIR = './results/ckpts'
-LOAD_CHECKPOINT = False
+LOAD_CHECKPOINT = True
 CHECKPOINT_PATH = r'wavenet_([0-9]+)\.ckpt'
 
+
 @tf.function
-def train_step(model: tf.keras.Model, x, y, loss_object, optimizer, loss_metric, train_accuracy):
+def train_step(model: tf.keras.Model, x, y, loss_object, optimizer, loss_metric,
+               train_accuracy):
     with tf.GradientTape() as tape:
         predictions = model(x)
         loss = loss_object(y, predictions)
@@ -31,15 +33,12 @@ def main():
     os.makedirs(WEIGHTS_DIR, exist_ok=True)
 
     # Initialize WaveNet.
-    model = WaveNet(
-        params.dilations,
-        params.filter_width,
-        params.residual_channels,
-        params.dilation_channels,
-        params.skip_channels )
+    model = WaveNet(params.dilations, params.filter_width,
+                    params.residual_channels, params.dilation_channels,
+                    params.skip_channels)
 
     loss_object = tf.keras.losses.CategoricalCrossentropy()
-    optimizer = tf.keras.optimizers.Adam()
+    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-5)
 
     train_loss = tf.keras.metrics.Mean(name='train_loss')
     train_accuracy = tf.keras.metrics.CategoricalAccuracy(name='train_accuracy')
@@ -62,26 +61,27 @@ def main():
         train_accuracy.reset_state()
         train_data = get_train_data()
         for x, y in train_data:
-            train_step(model, x, y, loss_object, optimizer, train_loss, train_accuracy)
+            train_step(model, x, y, loss_object, optimizer, train_loss,
+                       train_accuracy)
 
             with summary_writer.as_default():
                 tf.summary.scalar('train/loss', train_loss.result(), step=step)
-                tf.summary.scalar('train/accuracy', train_accuracy.result(), step=step)
+                tf.summary.scalar('train/accuracy',
+                                  train_accuracy.result(),
+                                  step=step)
             step += 1
 
         if epoch % SAVE_INTERVAL == 0:
-            checkpoint_path = os.path.join(
-                CHECKPOINTS_DIR, f'wavenet_{epoch:05d}.ckpt')
+            checkpoint_path = os.path.join(CHECKPOINTS_DIR,
+                                           f'wavenet_{epoch:05d}.ckpt')
             model.save_weights(checkpoint_path)
 
         print(f'Epoch {epoch + 1} '
               f'Loss {train_loss.result()} '
-              f'Accuracy {train_accuracy.result()}'
-              )
+              f'Accuracy {train_accuracy.result()}')
 
     print(f"Done training for {epoch} epoch.")
-    model.save_weights(os.path.join(
-        WEIGHTS_DIR, f'wavenet_{epoch:05d}'))
+    model.save_weights(os.path.join(WEIGHTS_DIR, f'wavenet_{epoch+1:05d}'))
 
 
 if __name__ == '__main__':

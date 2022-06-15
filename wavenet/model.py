@@ -71,7 +71,7 @@ class ResidualBlock(tf.keras.layers.Layer):
                                    dilation_rate=dilation_rate,
                                    padding="causal")
         self.res_output = MyConv1D(residual_channels, 1, padding="same")
-        self.SkipConv = MyConv1D(skip_channels, 1, padding="same")
+        self.skip_conv = MyConv1D(skip_channels, 1, padding="same")
 
     def call(self, inputs, is_generate=False):
         res = inputs
@@ -81,7 +81,7 @@ class ResidualBlock(tf.keras.layers.Layer):
         sig_out = tf.nn.sigmoid(sig_out)
         merged = tf.multiply(tanh_out, sig_out)
         res_out = self.res_output(merged, is_generate)
-        skip_out = self.SkipConv(merged, is_generate)
+        skip_out = self.skip_conv(merged, is_generate)
         res_out = tf.add(res_out, res)
 
         return res_out, skip_out
