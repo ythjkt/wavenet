@@ -41,15 +41,18 @@ def main():
                       params.skip_channels)
     # latest = tf.train.latest_checkpoint(CHECKPOINTS_DIR)
     start_time = time.time()
-    wavenet.load_weights('results/weights/wavenet_01500')
+    wavenet.load_weights('results/weights/wavenet_02000')
 
-    initial_value = mulaw_quantize(200)
+    initial_value = mulaw_quantize(0)
     input = tf.one_hot(indices=initial_value, depth=256, dtype=tf.float32)
     input = tf.reshape(input, [1, 1, 256])
     outputs = []
     with tf.device('/cpu:0'):
         for i in range(GENERATE_LEN):
             input = wavenet.call(input, is_generate=True)
+            index = tf.argmax(input, axis=-1)
+            input = tf.reshape(tf.one_hot(indices=index, depth=256),
+                               [1, 1, 256])
             outputs.append(tf.squeeze(tf.argmax(input, axis=-1)))
             print_progress_bar(i, GENERATE_LEN)
 
