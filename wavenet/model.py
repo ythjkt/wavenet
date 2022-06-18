@@ -98,9 +98,9 @@ class WaveNet(tf.keras.Model):
         self.dilation_channels = dilation_channels
         self.skip_channels = skip_channels
 
-        self.caucal_conv = MyConv1D(residual_channels,
-                                    kernel_size=1,
-                                    padding='causal')
+        self.caucal_conv = tf.keras.layers.Conv1D(residual_channels,
+                                                  kernel_size=1,
+                                                  padding='causal')
         self.residual_blocks = []
         for d in dilations:
             self.residual_blocks.append(
@@ -110,11 +110,11 @@ class WaveNet(tf.keras.Model):
                               skip_channels,
                               dilation_rate=d))
 
-        self.conv1 = MyConv1D(128, kernel_size=1, padding="same")
-        self.conv2 = MyConv1D(256, kernel_size=1, padding="same")
+        self.conv1 = MyConv1D(128, kernel_size=1, padding="causal")
+        self.conv2 = MyConv1D(256, kernel_size=1, padding="causal")
 
     def call(self, inputs, is_generate=False):
-        x = self.caucal_conv(inputs, is_generate)
+        x = self.caucal_conv(inputs)
         skip = None
         for residual_block in self.residual_blocks:
             x, h = residual_block(x, is_generate)
@@ -124,9 +124,9 @@ class WaveNet(tf.keras.Model):
                 skip = skip + h
         x = skip
         x = tf.nn.relu(x)
-        x = self.conv1(x, is_generate)
+        x = self.conv1(x)
         x = tf.nn.relu(x)
-        x = self.conv2(x, is_generate)
+        x = self.conv2(x)
         if not is_generate:
             x = tf.nn.softmax(x)
 
