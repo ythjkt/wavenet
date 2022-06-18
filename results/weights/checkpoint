@@ -1,2 +1,2 @@
-model_checkpoint_path: "wavenet_01500"
-all_model_checkpoint_paths: "wavenet_01500"
+model_checkpoint_path: "wavenet_02000"
+all_model_checkpoint_paths: "wavenet_02000"
