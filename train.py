@@ -5,10 +5,10 @@ import re
 import tensorflow as tf
 import numpy as np
 from wavenet.model import WaveNet
-from dataset import get_train_data
+from dataset import get_train_data, get_test_data
 import params
 
-SAVE_INTERVAL = 50
+SAVE_INTERVAL = 20
 RESULTS_DIR = './results/'
 WEIGHTS_DIR = './results/weights/'
 CHECKPOINTS_DIR = './results/ckpts'
@@ -28,6 +28,15 @@ def train_step(model: tf.keras.Model, x, y, loss_object, optimizer, loss_metric,
     train_accuracy.update_state(y, predictions)
 
 
+@tf.function
+def validate_step(model: tf.keras.Model, x, y, loss_object, loss_metric,
+                  accuracy_metric):
+    predictions = model(x)
+    loss = loss_object(y, predictions)
+    loss_metric.update_state(loss)
+    accuracy_metric.update_state(y, predictions)
+
+
 def main():
     print("Num GPUs available: ", len(tf.config.list_physical_devices('GPU')))
     os.makedirs(WEIGHTS_DIR, exist_ok=True)
@@ -41,7 +50,9 @@ def main():
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-5)
 
     train_loss = tf.keras.metrics.Mean(name='train_loss')
+    test_loss = tf.keras.metrics.Mean(name='test_loss')
     train_accuracy = tf.keras.metrics.CategoricalAccuracy(name='train_accuracy')
+    test_accuracy = tf.keras.metrics.CategoricalAccuracy(name='test_accuracy')
 
     current_epoch = 0
     if LOAD_CHECKPOINT:
@@ -56,10 +67,13 @@ def main():
     summary_writer = tf.summary.create_file_writer(RESULTS_DIR)
     step = 0
     print("Start training WaveNet.")
+    train_data = get_train_data()
+    test_data = get_test_data()
     for epoch in range(current_epoch, params.epoch):
         train_loss.reset_state()
+        test_loss.reset_state()
         train_accuracy.reset_state()
-        train_data = get_train_data()
+        test_accuracy.reset_state()
         for x, y in train_data:
             train_step(model, x, y, loss_object, optimizer, train_loss,
                        train_accuracy)
@@ -76,9 +90,14 @@ def main():
                                            f'wavenet_{epoch:05d}.ckpt')
             model.save_weights(checkpoint_path)
 
+        for x, y in test_data:
+            validate_step(model, x, y, loss_object, test_loss, test_accuracy)
+
         print(f'Epoch {epoch + 1} '
-              f'Loss {train_loss.result()} '
-              f'Accuracy {train_accuracy.result()}')
+              f'Loss {train_loss.result():20.19f} '
+              f'Test Loss {test_loss.result():20.19f} '
+              f'Accuracy {train_accuracy.result():20.19f} '
+              f'Test Accuracy {test_accuracy.result():20.19f}')
 
     print(f"Done training for {epoch} epoch.")
     model.save_weights(os.path.join(WEIGHTS_DIR, f'wavenet_{epoch+1:05d}'))

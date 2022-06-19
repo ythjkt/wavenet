@@ -5,10 +5,11 @@ import librosa
 import tensorflow as tf
 from util import *
 import params
+import random
 
-SAMPLING_RATE = 22050
-# Length of a trainign data used in training.
-TRAIN_LEN = 2048
+# Make sure that TRAIN_LEN > length of receptive field which is
+# sum(dilations) + 1.
+TRAIN_LEN = (sum(params.dilations) + 1) * 2
 HOP_SIZE = TRAIN_LEN // 2
 
 
@@ -28,7 +29,7 @@ def make_example(wav):
 
 
 def preprocess_audio(file_path: str):
-    wav, _ = librosa.load(file_path, sr=SAMPLING_RATE, duration=5)
+    wav, _ = librosa.load(file_path, sr=params.sampling_rate, duration=20)
     wav, _ = librosa.effects.trim(wav, top_db=12)
     wav = librosa.util.normalize(wav) * 0.95
     wav = mulaw_quantize(wav)
@@ -43,20 +44,29 @@ def preprocess_audio(file_path: str):
     return [make_example(wav) for wav in wavs]
 
 
-def create_tfrecord(train_data_dir, data_dir):
+def create_tfrecord(train_data_dir, raw_data_dir):
     os.makedirs(train_data_dir, exist_ok=True)
-    output_file = os.path.join(train_data_dir, 'train_data.tfrecord')
-    with tf.io.TFRecordWriter(output_file) as writer:
-        for p in os.listdir(data_dir):
-            file_path = os.path.join(data_dir, p)
-            if not os.path.isfile(file_path) or not p.endswith(
-                ('.mp3', '.wav')):
+    train_data_filepath = os.path.join(train_data_dir, 'train_data.tfrecord')
+    test_data_filepath = os.path.join(train_data_dir, 'test_data.tfrecord')
+    with tf.io.TFRecordWriter(
+            train_data_filepath) as train_writer, tf.io.TFRecordWriter(
+                test_data_filepath) as test_writer:
+        for p in os.listdir(raw_data_dir):
+            filepath = os.path.join(raw_data_dir, p)
+            if not os.path.isfile(filepath) or not p.endswith(('.mp3', '.wav')):
                 continue
-            records = preprocess_audio(file_path)
-            for record in records:
-                writer.write(record.SerializeToString())
+            records = preprocess_audio(filepath)
 
-    print(f"Created {output_file}.")
+            random.shuffle(records)
+            break_point = int(len(records) * params.train_test_split)
+            for record in records[:break_point]:
+                train_writer.write(record.SerializeToString())
+
+            for record in records[break_point:]:
+                test_writer.write(record.SerializeToString())
+
+    print(f"Stored train data in {train_data_filepath}.")
+    print(f"Stored test data in {test_data_filepath}.")
 
 
 def main():

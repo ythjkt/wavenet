@@ -1,16 +1,8 @@
+from sklearn.model_selection import train_test_split
+
 filter_width = 2
 sampling_rate = 16000
 dilations = [
-    1,
-    2,
-    4,
-    8,
-    16,
-    32,
-    64,
-    128,
-    256,
-    512,
     1,
     2,
     4,
@@ -57,9 +49,11 @@ dilation_channels = 32
 quantization_channels = 256
 skip_channels = 512
 frame_length = 2048
-epoch = 2000
+epoch = 10000
 mu = 256
 
 result_dir = "results"
 train_data_dir = "train_data"
 data_dir = "data"
+
+train_test_split = 0.9

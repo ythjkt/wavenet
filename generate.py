@@ -10,7 +10,7 @@ from scipy.io import wavfile
 import params
 from util import *
 
-SAMPLING_RATE = 22050
+SAMPLING_RATE = params.sampling_rate
 GENERATE_LEN = SAMPLING_RATE * 2
 CHECKPOINTS_DIR = './results/ckpts'  # TODO: Put this to params.py
 
@@ -41,7 +41,7 @@ def main():
                       params.skip_channels)
     # latest = tf.train.latest_checkpoint(CHECKPOINTS_DIR)
     start_time = time.time()
-    wavenet.load_weights('results/weights/wavenet_02000')
+    wavenet.load_weights('results/weights/wavenet_10000')
 
     initial_value = mulaw_quantize(0)
     input = tf.one_hot(indices=initial_value, depth=256, dtype=tf.float32)

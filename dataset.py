@@ -3,10 +3,11 @@ import tensorflow as tf
 
 def decode_fn(record_bytes):
     return tf.io.parse_single_example(
-        record_bytes,
-        {"wav": tf.io.FixedLenSequenceFeature(
-            [], dtype=tf.int64, allow_missing=True)}
-    )['wav']
+        record_bytes, {
+            "wav":
+                tf.io.FixedLenSequenceFeature(
+                    [], dtype=tf.int64, allow_missing=True)
+        })['wav']
 
 
 def get_xy(wav):
@@ -23,3 +24,11 @@ def get_train_data():
         .prefetch(buffer_size=tf.data.AUTOTUNE)
 
     return train_data
+
+
+def get_test_data():
+    test_data = tf.data.TFRecordDataset(
+        './train_data/test_data.tfrecord').shuffle(300).map(decode_fn)\
+        .map(get_xy).batch(1)\
+        .prefetch(buffer_size=tf.data.AUTOTUNE)
+    return test_data
