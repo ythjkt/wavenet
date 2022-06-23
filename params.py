@@ -1,5 +1,4 @@
-from sklearn.model_selection import train_test_split
-
+# WaveNet paramenters.
 filter_width = 2
 sampling_rate = 16000
 dilations = [
@@ -48,12 +47,12 @@ residual_channels = 32
 dilation_channels = 32
 quantization_channels = 256
 skip_channels = 512
-frame_length = 2048
-epoch = 10000
-mu = 256
 
+# Other parameters.
 result_dir = "results"
+# TODO: Remove these two paths once train.py is also updated.
 train_data_dir = "train_data"
 data_dir = "data"
 
-train_test_split = 0.9
+epoch = 10000
+mu = 256
