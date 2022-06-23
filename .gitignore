@@ -2,7 +2,7 @@
 .venv/
 .vscode/
 __pycache__/
-results/
-!results/weights/
+results/ckpts/
+!results/weights/*
 generated/
 train_data/

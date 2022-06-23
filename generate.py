@@ -11,7 +11,7 @@ import params
 from util import *
 
 SAMPLING_RATE = params.sampling_rate
-GENERATE_LEN = SAMPLING_RATE * 2
+GENERATE_LEN = SAMPLING_RATE * 5
 CHECKPOINTS_DIR = './results/ckpts'  # TODO: Put this to params.py
 
 
