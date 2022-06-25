@@ -5,7 +5,7 @@ import re
 import tensorflow as tf
 import numpy as np
 from wavenet.model import WaveNet
-from dataset import get_train_data, get_test_data
+from dataset import get_data
 import params
 
 SAVE_INTERVAL = 20
@@ -67,8 +67,8 @@ def main():
     summary_writer = tf.summary.create_file_writer(RESULTS_DIR)
     step = 0
     print("Start training WaveNet.")
-    train_data = get_train_data()
-    test_data = get_test_data()
+    # TODO: Change train_data to an path taken from a command line arg.
+    train_data, test_data = get_data("train_data")
     for epoch in range(current_epoch, params.epoch):
         train_loss.reset_state()
         test_loss.reset_state()

@@ -102,8 +102,10 @@ def main():
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    train_data_filepath = os.path.join(args.output_dir, 'train_data.tfrecord')
-    test_data_filepath = os.path.join(args.output_dir, 'test_data.tfrecord')
+    train_data_filepath = os.path.join(args.output_dir,
+                                       params.train_data_filename)
+    test_data_filepath = os.path.join(args.output_dir,
+                                      params.test_data_filename)
     with tf.io.TFRecordWriter(
             train_data_filepath) as train_writer, tf.io.TFRecordWriter(
                 test_data_filepath) as test_writer:

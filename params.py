@@ -50,9 +50,8 @@ skip_channels = 512
 
 # Other parameters.
 result_dir = "results"
-# TODO: Remove these two paths once train.py is also updated.
-train_data_dir = "train_data"
-data_dir = "data"
+train_data_filename = "train_data.tfrecord"
+test_data_filename = "test_data.tfrecord"
 
 epoch = 10000
 mu = 256

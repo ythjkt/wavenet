@@ -1,3 +1,5 @@
+import os
+import params
 import tensorflow as tf
 
 
@@ -17,18 +19,16 @@ def get_xy(wav):
     return x, y
 
 
-def get_train_data():
-    train_data = tf.data.TFRecordDataset(
-        './train_data/train_data.tfrecord').shuffle(300).map(decode_fn)\
-        .map(get_xy).batch(1)\
-        .prefetch(buffer_size=tf.data.AUTOTUNE)
+def get_data(data_dir: str):
+    """
+    Loads train and test data stored in data_dir and returns as TFRecordDataSet.
+    """
+    train_data_path = os.path.join(data_dir, params.train_data_filename)
+    test_data_path = os.path.join(data_dir, params.test_data_filename)
 
-    return train_data
+    train_data = tf.data.TFRecordDataset(train_data_path).shuffle(300).map(
+        decode_fn).map(get_xy).batch(1).prefetch(buffer_size=tf.data.AUTOTUNE)
+    test_data = tf.data.TFRecordDataset(test_data_path).shuffle(300).map(
+        decode_fn).map(get_xy).batch(1).prefetch(buffer_size=tf.data.AUTOTUNE)
 
-
-def get_test_data():
-    test_data = tf.data.TFRecordDataset(
-        './train_data/test_data.tfrecord').shuffle(300).map(decode_fn)\
-        .map(get_xy).batch(1)\
-        .prefetch(buffer_size=tf.data.AUTOTUNE)
-    return test_data
+    return train_data, test_data
