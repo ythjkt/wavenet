@@ -49,9 +49,9 @@ quantization_channels = 256
 skip_channels = 512
 
 # Other parameters.
-result_dir = "results"
 train_data_filename = "train_data.tfrecord"
 test_data_filename = "test_data.tfrecord"
-
+weights_dir = 'weights'
+checkpoint_dir = 'ckpts'
 epoch = 10000
 mu = 256
